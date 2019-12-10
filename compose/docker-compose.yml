@@ -1,26 +1,56 @@
-version: "2"
+version: '3.4'
+
+# Specify feature configuration for all nodes at once
+# See AntidoteDB documentation on how to configure these features
+x-antidote-features:
+  &default-features
+  ANTIDOTE_TXN_CERT: "true"
+  ANTIDOTE_TXN_PROT: "clocksi"
+  ANTIDOTE_RECOVER_FROM_LOG: "true"
+  ANTIDOTE_META_DATA_ON_START: "true"
+  ANTIDOTE_SYNC_LOG: "false"
+  ANTIDOTE_ENABLE_LOGGING: "true"
+  ANTIDOTE_AUTO_START_READ_SERVERS: "true"
+
+
 services:
-  antidote1:
-    image: antidotedb/antidote
+  dc1n1:
+    container_name: dc1n1
+    image: antidotedb:local-build
     environment:
-      NODE_NAME: "antidote@antidote1"
+      << : *default-features
+      NODE_NAME: "antidote@dc1n1"
+      COOKIE: "secret"
       SHORT_NAME: "true"
     ports:
-      - "8087:8087"
+      - "8101:8087"
+      - "8102:3001"
+    labels:
+      eu.antidotedb.name: "dc1n1"
+      eu.antidotedb.dc: "1"
+      eu.antidotedb.node: "1"
 
-  antidote2:
-    image: antidotedb/antidote
+  dc2n1:
+    container_name: dc2n1
+    image: antidotedb:local-build
     environment:
-      NODE_NAME: "antidote@antidote2"
+      << : *default-features
+      NODE_NAME: "antidote@dc2n1"
+      COOKIE: "secret"
       SHORT_NAME: "true"
     ports:
-      - "8088:8087"
+      - "8201:8087"
+      - "8202:3001"
+    labels:
+      eu.antidotedb.name: "dc2n1"
+      eu.antidotedb.dc: "2"
+      eu.antidotedb.node: "1"
 
-  link:
-    image: erlang:19
+  link-dcs:
+    image: erlang:21
     volumes:
       - .:/code
-    command: '/code/link.sh'
-    links:
-      - antidote1
-      - antidote2
+    command: '/code/connect-dcs.erl'
+    depends_on:
+      - dc1n1
+      - dc2n1

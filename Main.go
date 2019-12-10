@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"os"
 	"encoding/binary"
+	"math/rand"
+	"context"
 )
 
 type BenchmarkResult struct {
@@ -29,14 +31,44 @@ type RequestConfiguration struct {
 type RequestResult struct {
 	latency time.Duration
 	failed  bool
+	errorCode     int
 }
 
-func main() {
-	fmt.Println("Benchmark started.")
+func main() { os.Exit(mainReturnWithCode()) }
+
+func mainReturnWithCode() int {
+	fmt.Println("Init Benchmark.")
 
 	configuration := loadConfiguration()
 	runtime.GOMAXPROCS(configuration.cpuProcs)
 
+	composePath := "compose/docker-compose.yml"
+	defer stopDB(composePath)
+	startDB(composePath)
+
+	id, _ :=startStats()
+	defer stopStats(id)
+	fmt.Println(id)
+
+	fmt.Println("Wait for DCs to connect.")
+	if err := waitForStart(); err != nil {
+		fmt.Println(err)
+		return 1
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	delay(ctx)
+
+	dbContainer, err := getDbContainer()
+	if err != nil {
+		fmt.Println(err)
+		return 1
+	}
+
+
+	fmt.Println("Start Benchmarks.")
+	start := time.Now()
 	_, ok := BObjects[configuration.objectType]
 	if !ok {
 		fmt.Println("Illegal object type: " + configuration.objectType)
@@ -51,14 +83,20 @@ func main() {
 	for _, c := range configuration.concurrent {
 		runBenchmark(c, configuration)
 	}
+	end := time.Now()
 
+	collectStats(start, end, dbContainer)
 	fmt.Println("done.")
+	return 0
 }
 
 func runBenchmark(concurrent int, configuration Configuration) {
 	benchmark := Benchmarks[configuration.benchmarkType]
 
-	bucket := antidote.Bucket{Bucket: []byte("benchmark")}
+	//generate random bucket for each benchmark
+	bucketKey := make([]byte, 8)
+	rand.Read(bucketKey)
+	bucket := antidote.Bucket{Bucket: bucketKey}
 
 	queue := make(chan RequestConfiguration, configuration.requests)
 	results := make(chan RequestResult, configuration.requests)

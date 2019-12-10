@@ -21,10 +21,10 @@ type clientsFlag []int
 type hostsFlag []string
 
 var (
-	clients         clientsFlag = []int{1, 5, 10, 20, 30, 50, 100}
+	clients         clientsFlag = []int{1}//, 20, 30, 50, 100}
 	cpuProcs                    = flag.Int("cpu", 4, "Maximum cores used")
-	requests                    = flag.Int("r", 10000, "Number of requests per host")
-	hosts           hostsFlag   = []string{"127.0.0.1:8087"}
+	requests                    = flag.Int("r", 1000, "Number of requests per host")
+	hosts           hostsFlag   = []string{"127.0.0.1:8101"}
 	objects                     = flag.Int("o", 5, "Number of objects used per request")
 	keyDistribution             = flag.String("key", "paretoInt", "Key distribution")
 	objectType                  = flag.String("object", "counter", "CRDT object")
