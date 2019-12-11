@@ -16,16 +16,16 @@ func startStats() (string, error) {
 	containerConfig := &container.Config{
 		Image: image,
 		ExposedPorts: nat.PortSet{
-			"8080/tcp": struct{}{},
+			"9701/tcp": struct{}{},
 		},
 	}
 
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
-			"8080/tcp": []nat.PortBinding{
+			"9701/tcp": []nat.PortBinding{
 				{
 					HostIP: "0.0.0.0",
-					HostPort: "8080",
+					HostPort: "9701",
 				},
 			},
 		},
@@ -68,7 +68,7 @@ func startStats() (string, error) {
 
 
 func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
-	cadvisorClient, err := cadvisor.NewClient("http://localhost:8080/")
+	cadvisorClient, err := cadvisor.NewClient("http://localhost:9701/")
 	if err != nil {
 		panic(err)
 	}
