@@ -11,7 +11,6 @@ import (
 	"os"
 	"encoding/binary"
 	"math/rand"
-	"context"
 )
 
 type BenchmarkResult struct {
@@ -46,9 +45,12 @@ func mainReturnWithCode() int {
 	defer stopDB(composePath)
 	startDB(composePath)
 
-	id, _ :=startStats()
-	defer stopStats(id)
-	fmt.Println(id)
+	idStats, err := startStats()
+	if err != nil {
+		fmt.Println(err)
+		return 1
+	}
+	defer stopContainer(idStats)
 
 	fmt.Println("Wait for DCs to connect.")
 	if err := waitForStart(); err != nil {
@@ -56,9 +58,14 @@ func mainReturnWithCode() int {
 		return 1
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	delay(ctx)
+	if configuration.delay != 0 {
+		idPumba, err := startPumba(configuration.delay)
+		if err != nil {
+			fmt.Println(err)
+			return 1
+		}
+		defer stopContainer(idPumba)
+	}
 
 	dbContainer, err := getDbContainer()
 	if err != nil {
@@ -69,19 +76,27 @@ func mainReturnWithCode() int {
 
 	fmt.Println("Start Benchmarks.")
 	start := time.Now()
-	_, ok := BObjects[configuration.objectType]
-	if !ok {
-		fmt.Println("Illegal object type: " + configuration.objectType)
-		os.Exit(1)
-	}
-	_, ok = Benchmarks[configuration.benchmarkType]
-	if !ok {
-		fmt.Println("Illegal benchmark type: " + configuration.benchmarkType)
-		os.Exit(1)
-	}
+	if configuration.bashoBenchPath != "" {
+		err = runBashoBench(configuration.bashoBenchPath)
+		if err != nil {
+			fmt.Println(err)
+			return 1
+		}
+	} else {
+		_, ok := BObjects[configuration.objectType]
+		if !ok {
+			fmt.Println("Illegal object type: " + configuration.objectType)
+			os.Exit(1)
+		}
+		_, ok = Benchmarks[configuration.benchmarkType]
+		if !ok {
+			fmt.Println("Illegal benchmark type: " + configuration.benchmarkType)
+			os.Exit(1)
+		}
 
-	for _, c := range configuration.concurrent {
-		runBenchmark(c, configuration)
+		for _, c := range configuration.concurrent {
+			runBenchmark(c, configuration)
+		}
 	}
 	end := time.Now()
 

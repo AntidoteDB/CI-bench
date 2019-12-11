@@ -15,6 +15,8 @@ type Configuration struct {
 	keyDistribution string
 	objectType      string
 	benchmarkType   string
+	bashoBenchPath  string
+	delay           int
 }
 
 type clientsFlag []int
@@ -29,6 +31,8 @@ var (
 	keyDistribution             = flag.String("key", "paretoInt", "Key distribution")
 	objectType                  = flag.String("object", "counter", "CRDT object")
 	benchmarkType               = flag.String("b", "staticWrite", "Benchmark type")
+	bashoBenchPath              = flag.String("bb", "", "BashoBench config path")
+	delay                       = flag.Int("d", 0, "Network delay")
 )
 
 func (i *clientsFlag) String() string {
@@ -66,6 +70,8 @@ func loadConfiguration() Configuration {
 		keyDistribution: *keyDistribution,
 		objectType:      *objectType,
 		benchmarkType:   *benchmarkType,
+		bashoBenchPath:  *bashoBenchPath,
+		delay:           *delay,
 	}
 	return configuration
 }

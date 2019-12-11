@@ -1,35 +1,20 @@
 package main
 
 import (
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"time"
 	"github.com/google/cadvisor/info/v1"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/docker/api/types/mount"
-	"context"
 	"fmt"
 	cadvisor "github.com/google/cadvisor/client"
 )
 
 func startStats() (string, error) {
-	ctx := context.Background()
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-
-	if err != nil {
-		panic(err)
-	}
-
-	imageName := "google/cadvisor"
-
-	_, err = cli.ImagePull(ctx, imageName, types.ImagePullOptions{})
-	if err != nil {
-		panic(err)
-	}
+	image := "google/cadvisor"
 
 	containerConfig := &container.Config{
-		Image: imageName,
+		Image: image,
 		ExposedPorts: nat.PortSet{
 			"8080/tcp": struct{}{},
 		},
@@ -78,34 +63,7 @@ func startStats() (string, error) {
 		},
 	}
 
-	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, "")
-
-	if err != nil {
-		panic(err)
-	}
-
-	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		panic(err)
-	}
-
-	return resp.ID, nil
-}
-
-func stopStats(id string) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	ctx := context.Background()
-
-	if err != nil {
-		panic(err)
-	}
-
-	if err = cli.ContainerStop(ctx, id, nil); err != nil {
-		panic(err)
-	}
-
-	if err = cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{Force:true}); err != nil {
-		panic(err)
-	}
+	return startContainer(image, containerConfig, hostConfig)
 }
 
 
@@ -170,8 +128,8 @@ func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 		}
 
 		if eth0first !=nil && eth0last !=nil {
-			fmt.Printf("Network bytes recieved %s\n", formatBytes(eth0last.RxBytes - eth0first.RxBytes))
-			fmt.Printf("Network bytes transmitted %s\n", formatBytes(eth0last.TxBytes - eth0first.TxBytes))
+			fmt.Printf("Network recieved %s\n", formatBytes(eth0last.RxBytes - eth0first.RxBytes))
+			fmt.Printf("Network transmitted %s\n", formatBytes(eth0last.TxBytes - eth0first.TxBytes))
 		}
 
 
@@ -195,8 +153,8 @@ func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 			read -= io.Stats["Read"]
 			write -= io.Stats["Write"]
 		}
-		fmt.Printf("Disk bytes read %s\n", formatBytes(read))
-		fmt.Printf("Disk bytes write %s\n", formatBytes(write))
+		fmt.Printf("Disk read %s\n", formatBytes(read))
+		fmt.Printf("Disk write %s\n", formatBytes(write))
 	}
 }
 
