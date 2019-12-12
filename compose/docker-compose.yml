@@ -47,10 +47,8 @@ services:
       eu.antidotedb.node: "1"
 
   link-dcs:
-    image: erlang:21
-    volumes:
-      - .:/code
-    command: '/code/connect-dcs.erl'
+    image: peterzel/antidote-connect
+    command: ['--connectDcs', 'dc1n1:8087', 'dc2n1:8087']
     depends_on:
       - dc1n1
       - dc2n1
