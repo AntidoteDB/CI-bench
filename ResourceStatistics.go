@@ -1,13 +1,14 @@
 package main
 
 import (
-	"time"
-	"github.com/google/cadvisor/info/v1"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
-	"github.com/docker/docker/api/types/mount"
 	"fmt"
+	"time"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/go-connections/nat"
 	cadvisor "github.com/google/cadvisor/client"
+	v1 "github.com/google/cadvisor/info/v1"
 )
 
 func startStats() (string, error) {
@@ -16,48 +17,48 @@ func startStats() (string, error) {
 	containerConfig := &container.Config{
 		Image: image,
 		ExposedPorts: nat.PortSet{
-			"9701/tcp": struct{}{},
+			"8080/tcp": struct{}{},
 		},
 	}
 
 	hostConfig := &container.HostConfig{
 		PortBindings: nat.PortMap{
-			"9701/tcp": []nat.PortBinding{
+			"8080/tcp": []nat.PortBinding{
 				{
-					HostIP: "0.0.0.0",
+					HostIP:   "0.0.0.0",
 					HostPort: "9701",
 				},
 			},
 		},
 		Mounts: []mount.Mount{
 			{
-				Type:   mount.TypeBind,
-				Source: "/",
-				Target: "/rootfs",
+				Type:     mount.TypeBind,
+				Source:   "/",
+				Target:   "/rootfs",
 				ReadOnly: true,
 			},
 			{
-				Type:   mount.TypeBind,
-				Source: "/var/run",
-				Target: "/var/run",
+				Type:     mount.TypeBind,
+				Source:   "/var/run",
+				Target:   "/var/run",
 				ReadOnly: true,
 			},
 			{
-				Type:   mount.TypeBind,
-				Source: "/sys",
-				Target: "/sys",
+				Type:     mount.TypeBind,
+				Source:   "/sys",
+				Target:   "/sys",
 				ReadOnly: true,
 			},
 			{
-				Type:   mount.TypeBind,
-				Source: "/var/lib/docker/",
-				Target: "/var/lib/docker",
+				Type:     mount.TypeBind,
+				Source:   "/var/lib/docker/",
+				Target:   "/var/lib/docker",
 				ReadOnly: true,
 			},
 			{
-				Type:   mount.TypeBind,
-				Source: "/dev/disk/",
-				Target: "/dev/disk",
+				Type:     mount.TypeBind,
+				Source:   "/dev/disk/",
+				Target:   "/dev/disk",
 				ReadOnly: true,
 			},
 		},
@@ -65,7 +66,6 @@ func startStats() (string, error) {
 
 	return startContainer(image, containerConfig, hostConfig)
 }
-
 
 func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 	cadvisorClient, err := cadvisor.NewClient("http://localhost:9701/")
@@ -75,13 +75,13 @@ func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 
 	options := &v1.ContainerInfoRequest{
 		NumStats: -1,
-		Start: start,
-		End: end,
+		Start:    start,
+		End:      end,
 	}
 
-	for _,c := range *dbContainer {
+	for _, c := range *dbContainer {
 		fmt.Printf("Container: %v\n", c.Name)
-		containerInfo, err := cadvisorClient.ContainerInfo("/docker/" + c.Id, options)
+		containerInfo, err := cadvisorClient.ContainerInfo("/docker/"+c.Id, options)
 
 		if err != nil {
 			panic(err)
@@ -95,9 +95,9 @@ func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 		var maxMem uint64
 
 		first := containerInfo.Stats[0]
-		last := containerInfo.Stats[len(containerInfo.Stats) - 1]
+		last := containerInfo.Stats[len(containerInfo.Stats)-1]
 
-		for _,s := range containerInfo.Stats {
+		for _, s := range containerInfo.Stats {
 			mem += s.Memory.Usage
 			if s.Memory.Usage > maxMem {
 				maxMem = s.Memory.Usage
@@ -105,33 +105,30 @@ func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 
 		}
 
-
-
-		fmt.Printf("Avg Memory usage %s\n", formatBytesFloat(float64(mem) / float64(len(containerInfo.Stats))))
+		fmt.Printf("Avg Memory usage %s\n", formatBytesFloat(float64(mem)/float64(len(containerInfo.Stats))))
 		fmt.Printf("Max Memory usage %s\n", formatBytes(maxMem))
 		fmt.Printf("Max Memory usage %s\n", formatBytes(last.Memory.MaxUsage))
 
-		fmt.Printf("CPU usage %.2fs\n", float64(last.Cpu.Usage.User - first.Cpu.Usage.User) * 1e-9) //cpu seconds
+		fmt.Printf("CPU usage %.2fs\n", float64(last.Cpu.Usage.User-first.Cpu.Usage.User)*1e-9) //cpu seconds
 
 		var eth0first, eth0last *v1.InterfaceStats
-		for _,interf := range first.Network.Interfaces {
+		for _, interf := range first.Network.Interfaces {
 			if interf.Name == "eth0" {
 				eth0first = &interf
 				break
 			}
 		}
-		for _,interf := range last.Network.Interfaces {
+		for _, interf := range last.Network.Interfaces {
 			if interf.Name == "eth0" {
 				eth0last = &interf
 				break
 			}
 		}
 
-		if eth0first !=nil && eth0last !=nil {
-			fmt.Printf("Network recieved %s\n", formatBytes(eth0last.RxBytes - eth0first.RxBytes))
-			fmt.Printf("Network transmitted %s\n", formatBytes(eth0last.TxBytes - eth0first.TxBytes))
+		if eth0first != nil && eth0last != nil {
+			fmt.Printf("Network received %s\n", formatBytes(eth0last.RxBytes-eth0first.RxBytes))
+			fmt.Printf("Network transmitted %s\n", formatBytes(eth0last.TxBytes-eth0first.TxBytes))
 		}
-
 
 		//for _, io := range first.DiskIo.IoServiceBytes {
 		//		//	fmt.Printf("%v\n", io.Device)
