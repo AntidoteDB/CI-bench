@@ -46,7 +46,7 @@ func writeResultToFile(benchmarkName string, result BenchmarkResult) error{
 	}
 	defer f.Close()
 
-	s := fmt.Sprintf("%s;%s;%s;%.2f;%d\n", result.min.String(), result.max.String(), result.avg.String(), result.rps, result.failed)
+	s := fmt.Sprintf("%d;%d;%d;%.2f;%d\n", result.min.Milliseconds(), result.max.Milliseconds(), result.avg.Milliseconds(), result.rps, result.failed)
 	_, err = f.WriteString(s)
 	return fmt.Errorf("error writing to file %v: %v", fileName, err)
 }
