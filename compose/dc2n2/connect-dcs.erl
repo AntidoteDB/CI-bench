@@ -1,8 +1,7 @@
 #!/usr/bin/env escript
 %%! -smp enable -sname erlshell -setcookie secret -hidden
-
 main(_Args) ->
-    timer:sleep(15000),
+    timer:sleep(10000),
 
     {ok, Desc1} = getDesc(antidote@dc1n1),
     io:format("~n===============~nDescriptor DC1: ~p ~n===========~n", [Desc1]),

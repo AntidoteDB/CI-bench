@@ -4,9 +4,11 @@ import (
 	"flag"
 	"strconv"
 	"fmt"
+	"time"
 )
 
 type Configuration struct {
+	topology        string
 	concurrent      []int //number of concurrent clients per host
 	cpuProcs        int
 	requests        int
@@ -17,22 +19,25 @@ type Configuration struct {
 	benchmarkType   string
 	bashoBenchPath  string
 	delay           int
+	name            string
 }
 
 type clientsFlag []int
 type hostsFlag []string
 
 var (
-	clients         clientsFlag = []int{1}//, 20, 30, 50, 100}
+	topology                    = flag.String("t", "dc2n1", "DC Topology")
+	clients        				  clientsFlag
 	cpuProcs                    = flag.Int("cpu", 4, "Maximum cores used")
 	requests                    = flag.Int("r", 1000, "Number of requests per host")
-	hosts           hostsFlag   = []string{"127.0.0.1:8101"}
+	hosts                         hostsFlag
 	objects                     = flag.Int("o", 5, "Number of objects used per request")
 	keyDistribution             = flag.String("key", "paretoInt", "Key distribution")
 	objectType                  = flag.String("object", "counter", "CRDT object")
 	benchmarkType               = flag.String("b", "staticWrite", "Benchmark type")
 	bashoBenchPath              = flag.String("bb", "", "BashoBench config path")
 	delay                       = flag.Int("d", 0, "Network delay")
+	name                        = flag.String("n", "", "Benchmark name")
 )
 
 func (i *clientsFlag) String() string {
@@ -61,7 +66,18 @@ func loadConfiguration() Configuration {
 	flag.Var(&hosts, "h", "Concurrent clients")
 	flag.Parse()
 
+	if len(clients) == 0 {
+		clients = append(clients, 1)
+	}
+	if len(hosts) == 0 {
+		hosts = append(hosts, "dc1n1:8087")
+	}
+	if *name == "" {
+		*name = time.Now().Format("20060102150405")
+	}
+
 	configuration := Configuration{
+		topology:        *topology,
 		concurrent:      clients,
 		cpuProcs:        *cpuProcs,
 		requests:        *requests,
@@ -72,6 +88,7 @@ func loadConfiguration() Configuration {
 		benchmarkType:   *benchmarkType,
 		bashoBenchPath:  *bashoBenchPath,
 		delay:           *delay,
+		name:			 *name,
 	}
 	return configuration
 }

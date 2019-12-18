@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 	"github.com/docker/docker/client"
-	"golang.org/x/net/context"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/docker/docker/api/types"
@@ -20,11 +20,11 @@ type DbContainer struct {
 	IPAddress string
 }
 
-func startDB(composePath string) {
+func startDB(composePath string) error {
 	cmd := exec.Command("docker-compose", "-f", composePath, "-p", "benchmark", "up", "-d")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Run()
+	return cmd.Run()
 }
 
 func stopDB(composePath string) {

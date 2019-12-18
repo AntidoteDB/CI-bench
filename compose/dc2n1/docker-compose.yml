@@ -1,0 +1,70 @@
+version: '3.4'
+
+# Specify feature configuration for all nodes at once
+# See AntidoteDB documentation on how to configure these features
+x-antidote-features:
+  &default-features
+  ANTIDOTE_TXN_CERT: "true"
+  ANTIDOTE_TXN_PROT: "clocksi"
+  ANTIDOTE_RECOVER_FROM_LOG: "true"
+  ANTIDOTE_META_DATA_ON_START: "true"
+  ANTIDOTE_SYNC_LOG: "false"
+  ANTIDOTE_ENABLE_LOGGING: "true"
+  ANTIDOTE_AUTO_START_READ_SERVERS: "true"
+
+
+services:
+  dc1n1:
+    container_name: dc1n1
+    image: antidotedb:${BUILD}
+    environment:
+      << : *default-features
+      NODE_NAME: "antidote@dc1n1"
+      COOKIE: "secret"
+      SHORT_NAME: "true"
+    labels:
+      eu.antidotedb.name: "dc1n1"
+      eu.antidotedb.dc: "1"
+      eu.antidotedb.node: "1"
+    networks:
+      benchmark-net:
+        aliases:
+           - dc1n1
+
+  dc2n1:
+    container_name: dc2n1
+    image: antidotedb:${BUILD}
+    environment:
+      << : *default-features
+      NODE_NAME: "antidote@dc2n1"
+      COOKIE: "secret"
+      SHORT_NAME: "true"
+    labels:
+      eu.antidotedb.name: "dc2n1"
+      eu.antidotedb.dc: "2"
+      eu.antidotedb.node: "1"
+    networks:
+      benchmark-net:
+        aliases:
+           - dc2n1
+
+  link-dcs:
+    image: erlang:21
+    volumes:
+      - benchmark-volume:/code
+    command: '/code/compose/dc2n1/connect-dcs.erl'
+    depends_on:
+      - dc1n1
+      - dc2n1
+    networks:
+      benchmark-net:
+        aliases:
+           - link-dcs
+
+volumes:
+  benchmark-volume:
+    external: true
+
+networks:
+  benchmark-net:
+    external: true

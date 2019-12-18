@@ -33,6 +33,12 @@ type RequestResult struct {
 	errorCode     int
 }
 
+var Topologys = map[string]string {
+	"dc1n2": "compose/dc1n2/docker-compose.yml",
+	"dc2n1": "compose/dc2n1/docker-compose.yml",
+	"dc2n2": "compose/dc2n2/docker-compose.yml",
+}
+
 func main() { os.Exit(mainReturnWithCode()) }
 
 func mainReturnWithCode() int {
@@ -41,9 +47,18 @@ func mainReturnWithCode() int {
 	configuration := loadConfiguration()
 	runtime.GOMAXPROCS(configuration.cpuProcs)
 
-	composePath := "compose/docker-compose.yml"
+	composePath, ok := Topologys[configuration.topology]
+	if !ok {
+		fmt.Println("Illegal dc topology type: " + configuration.objectType)
+		return 1
+	}
+
 	defer stopDB(composePath)
-	startDB(composePath)
+	err := startDB(composePath)
+	if err != nil {
+		fmt.Println(err)
+		return 1
+	}
 
 	idStats, err := startStats()
 	if err != nil {
@@ -75,7 +90,7 @@ func mainReturnWithCode() int {
 
 
 	fmt.Println("Start Benchmarks.")
-	start := time.Now()
+
 	if configuration.bashoBenchPath != "" {
 		err = runBashoBench(configuration.bashoBenchPath)
 		if err != nil {
@@ -86,26 +101,39 @@ func mainReturnWithCode() int {
 		_, ok := BObjects[configuration.objectType]
 		if !ok {
 			fmt.Println("Illegal object type: " + configuration.objectType)
-			os.Exit(1)
+			return 1
 		}
 		_, ok = Benchmarks[configuration.benchmarkType]
 		if !ok {
 			fmt.Println("Illegal benchmark type: " + configuration.benchmarkType)
-			os.Exit(1)
+			return 1
 		}
 
 		for _, c := range configuration.concurrent {
-			runBenchmark(c, configuration)
+			start := time.Now()
+			if err := runBenchmark(c, configuration); err != nil {
+				fmt.Println(err)
+				return 1
+			}
+			end := time.Now()
+			resourceStatistics, err := collectStats(start, end, dbContainer)
+			if err != nil {
+				fmt.Println(err)
+				return 1
+			}
+
+			err = writeStatisticsToFile(configuration.name + "-" + strconv.Itoa(c), resourceStatistics)
+			if err != nil {
+				fmt.Println(err)
+				return 1
+			}
 		}
 	}
-	end := time.Now()
-
-	collectStats(start, end, dbContainer)
 	fmt.Println("done.")
 	return 0
 }
 
-func runBenchmark(concurrent int, configuration Configuration) {
+func runBenchmark(concurrent int, configuration Configuration) error {
 	benchmark := Benchmarks[configuration.benchmarkType]
 
 	//generate random bucket for each benchmark
@@ -133,6 +161,11 @@ func runBenchmark(concurrent int, configuration Configuration) {
 			continue
 		}
 		hosts[i] = antidote.Host{Name: h[0], Port: port}
+		err = testConnection(hosts[i])
+		if err != nil {
+			fmt.Println("Error creating Client.")
+			return err
+		}
 	}
 
 	if benchmark.init != nil {
@@ -153,7 +186,7 @@ func runBenchmark(concurrent int, configuration Configuration) {
 
 		if err != nil {
 			fmt.Println("Error creating Client.")
-			return
+			return err
 		}
 		benchmark.init(client, &object)
 		client.Close()
@@ -217,6 +250,13 @@ func runBenchmark(concurrent int, configuration Configuration) {
 	}
 
 	printBenchmarkResult(result)
+	writeResultToFile(result.configuration.name + "-" + strconv.Itoa(concurrent), result)
+	return nil
+}
+
+func testConnection(host antidote.Host) error {
+	_, err := antidote.NewClient(host)
+	return err
 }
 
 func printBenchmarkResult(result BenchmarkResult) {

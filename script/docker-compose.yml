@@ -1,0 +1,26 @@
+version: '3.5'
+
+services:
+  benchmark:
+    container_name: benchmark
+    image: antidote-benchmark:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - benchmark-volume:/go/src/benchmark
+      - ${OUTPUT:-../output}:/output
+    networks:
+      - benchmark-net
+    command: "${ARGS-}"
+    environment:
+      BUILD: ${BUILD:-local-build}
+
+
+
+networks:
+  benchmark-net:
+    name: benchmark-net
+    driver: bridge
+
+volumes:
+  benchmark-volume:
+    name: benchmark-volume

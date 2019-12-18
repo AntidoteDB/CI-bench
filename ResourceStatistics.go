@@ -4,11 +4,25 @@ import (
 	"time"
 	"github.com/google/cadvisor/info/v1"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
 	"github.com/docker/docker/api/types/mount"
 	"fmt"
 	cadvisor "github.com/google/cadvisor/client"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/client"
+	"context"
+	"github.com/docker/go-connections/nat"
 )
+
+type ResourceStatistics struct {
+	Container      string
+	AvgMem         float64
+	MaxMem         float64
+	Cpu            float64
+	NetReceived    float64
+	NetTransmitted float64
+	DiskRead       float64
+	DiskWrite      float64
+}
 
 func startStats() (string, error) {
 	image := "google/cadvisor"
@@ -63,14 +77,28 @@ func startStats() (string, error) {
 		},
 	}
 
-	return startContainer(image, containerConfig, hostConfig)
+	id, err := startContainer(image, containerConfig, hostConfig)
+
+	if err != nil {
+		return id, err
+	}
+
+	ctx := context.Background()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return id, err
+	}
+	if err := cli.NetworkConnect(ctx, "benchmark-net", id, &network.EndpointSettings{Aliases: []string{"cadvisor"}}); err != nil {
+			return "", err
+	}
+	return id, nil
 }
 
 
-func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
-	cadvisorClient, err := cadvisor.NewClient("http://localhost:8080/")
+func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) (*[]ResourceStatistics, error) {
+	cadvisorClient, err := cadvisor.NewClient("http://cadvisor:8080/")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	options := &v1.ContainerInfoRequest{
@@ -79,12 +107,13 @@ func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 		End: end,
 	}
 
-	for _,c := range *dbContainer {
-		fmt.Printf("Container: %v\n", c.Name)
+	resourceStatistics := make([]ResourceStatistics, len(*dbContainer))
+
+	for i,c := range *dbContainer {
 		containerInfo, err := cadvisorClient.ContainerInfo("/docker/" + c.Id, options)
 
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		if len(containerInfo.Stats) == 0 {
@@ -105,14 +134,6 @@ func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 
 		}
 
-
-
-		fmt.Printf("Avg Memory usage %s\n", formatBytesFloat(float64(mem) / float64(len(containerInfo.Stats))))
-		fmt.Printf("Max Memory usage %s\n", formatBytes(maxMem))
-		fmt.Printf("Max Memory usage %s\n", formatBytes(last.Memory.MaxUsage))
-
-		fmt.Printf("CPU usage %.2fs\n", float64(last.Cpu.Usage.User - first.Cpu.Usage.User) * 1e-9) //cpu seconds
-
 		var eth0first, eth0last *v1.InterfaceStats
 		for _,interf := range first.Network.Interfaces {
 			if interf.Name == "eth0" {
@@ -127,23 +148,6 @@ func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 			}
 		}
 
-		if eth0first !=nil && eth0last !=nil {
-			fmt.Printf("Network recieved %s\n", formatBytes(eth0last.RxBytes - eth0first.RxBytes))
-			fmt.Printf("Network transmitted %s\n", formatBytes(eth0last.TxBytes - eth0first.TxBytes))
-		}
-
-
-		//for _, io := range first.DiskIo.IoServiceBytes {
-		//		//	fmt.Printf("%v\n", io.Device)
-		//		//	fmt.Printf("%v\n", io.Stats["Read"])
-		//		//	fmt.Printf("%v\n", io.Stats["Write"])
-		//		//}
-		//		//for _, io := range last.DiskIo.IoServiceBytes {
-		//		//	fmt.Printf("%v\n", io.Device)
-		//		//	fmt.Printf("%v\n", io.Stats["Read"])
-		//		//	fmt.Printf("%v\n", io.Stats["Write"])
-		//		//}
-
 		var read, write uint64
 		for _, io := range last.DiskIo.IoServiceBytes {
 			read += io.Stats["Read"]
@@ -153,9 +157,25 @@ func collectStats(start time.Time, end time.Time, dbContainer *[]DbContainer) {
 			read -= io.Stats["Read"]
 			write -= io.Stats["Write"]
 		}
-		fmt.Printf("Disk read %s\n", formatBytes(read))
-		fmt.Printf("Disk write %s\n", formatBytes(write))
+
+		containerStatistics := ResourceStatistics{
+			Container: c.Name,
+			AvgMem: float64(mem) / float64(len(containerInfo.Stats)),
+			MaxMem: float64(maxMem),
+			Cpu: float64(last.Cpu.Usage.User - first.Cpu.Usage.User) * 1e-9,
+			DiskRead: float64(read),
+			DiskWrite: float64(write),
+		}
+
+		if eth0first !=nil && eth0last !=nil {
+			containerStatistics.NetReceived = float64(eth0last.RxBytes) - float64(eth0first.RxBytes)
+			containerStatistics.NetTransmitted = float64(eth0last.TxBytes) - float64(eth0first.TxBytes)
+		}
+
+		printStatistics(containerStatistics)
+		resourceStatistics[i] = containerStatistics
 	}
+	return &resourceStatistics, nil
 }
 
 const (
@@ -165,11 +185,7 @@ const (
 	TERABYTE = 1e12
 )
 
-func formatBytes(bytes uint64) string {
-	return formatBytesFloat(float64(bytes))
-}
-
-func formatBytesFloat(bytes float64) string {
+func formatBytes(bytes float64) string {
 	unit := ""
 	value := bytes
 
@@ -191,4 +207,15 @@ func formatBytesFloat(bytes float64) string {
 		unit = "B"
 	}
 	return fmt.Sprintf("%.2f%s", value, unit)
+}
+
+func printStatistics(statistics ResourceStatistics) {
+	fmt.Printf("Container: %v\n", statistics.Container)
+	fmt.Printf("Avg Memory usage %s\n", formatBytes(statistics.AvgMem))
+	fmt.Printf("Max Memory usage %s\n", formatBytes(statistics.MaxMem))
+	fmt.Printf("CPU usage %.2fs\n", statistics.Cpu) //cpu seconds
+	fmt.Printf("Network received %s\n", formatBytes(statistics.NetReceived))
+	fmt.Printf("Network transmitted %s\n", formatBytes(statistics.NetTransmitted))
+	fmt.Printf("Disk read %s\n", formatBytes(statistics.DiskRead))
+	fmt.Printf("Disk write %s\n", formatBytes(statistics.DiskWrite))
 }
