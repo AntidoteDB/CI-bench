@@ -74,12 +74,28 @@ func mainReturnWithCode() int {
 	}
 
 	if configuration.delay != 0 {
-		idPumba, err := startPumba(configuration.delay)
+		idDelay, err := applyDelay(configuration.delay)
 		if err != nil {
 			fmt.Println(err)
 			return 1
 		}
-		defer stopContainer(idPumba)
+		defer stopContainer(idDelay)
+	}
+	if configuration.loss != 0 {
+		idLoss, err := applyLoss(configuration.delay)
+		if err != nil {
+			fmt.Println(err)
+			return 1
+		}
+		defer stopContainer(idLoss)
+	}
+	if configuration.rate != 0 {
+		idRate, err := applyRate(configuration.delay)
+		if err != nil {
+			fmt.Println(err)
+			return 1
+		}
+		defer stopContainer(idRate)
 	}
 
 	dbContainer, err := getDbContainer()

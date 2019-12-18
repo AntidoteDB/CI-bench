@@ -19,6 +19,8 @@ type Configuration struct {
 	benchmarkType   string
 	bashoBenchPath  string
 	delay           int
+	loss           int
+	rate           int
 	name            string
 }
 
@@ -37,6 +39,8 @@ var (
 	benchmarkType               = flag.String("b", "staticWrite", "Benchmark type")
 	bashoBenchPath              = flag.String("bb", "", "BashoBench config path")
 	delay                       = flag.Int("d", 0, "Network delay")
+	loss                       = flag.Int("loss", 0, "Network loss in percentage")
+	rate                       = flag.Int("rate", 0, "Network rate limit")
 	name                        = flag.String("n", "", "Benchmark name")
 )
 
@@ -88,6 +92,8 @@ func loadConfiguration() Configuration {
 		benchmarkType:   *benchmarkType,
 		bashoBenchPath:  *bashoBenchPath,
 		delay:           *delay,
+		loss:            *loss,
+		rate:            *rate,
 		name:			 *name,
 	}
 	return configuration
