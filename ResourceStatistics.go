@@ -10,7 +10,6 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"context"
-	"github.com/docker/go-connections/nat"
 )
 
 type ResourceStatistics struct {
@@ -29,20 +28,9 @@ func startStats() (string, error) {
 
 	containerConfig := &container.Config{
 		Image: image,
-		ExposedPorts: nat.PortSet{
-			"8080/tcp": struct{}{},
-		},
 	}
 
 	hostConfig := &container.HostConfig{
-		PortBindings: nat.PortMap{
-			"8080/tcp": []nat.PortBinding{
-				{
-					HostIP: "0.0.0.0",
-					HostPort: "8080",
-				},
-			},
-		},
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeBind,
