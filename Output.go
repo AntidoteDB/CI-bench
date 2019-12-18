@@ -11,7 +11,7 @@ func writeStatisticsToFile(benchmarkName string, resourceStatistics *[]ResourceS
 		fileName := "/output/" + benchmarkName + "-" + stats.Container + ".csv"
 
 		if _, err := os.Stat(fileName); os.IsNotExist(err) {
-			if err := createCSVFile(fileName, "avgmem;maxmem;cpu;trans;rec;read;write\n"); err != nil {
+			if err := createCSVFile(fileName, "avgmem,maxmem,cpu,trans,rec,read,write\n"); err != nil {
 				return fmt.Errorf("error creating file %v: %v", fileName, err)
 			}
 		}
@@ -22,7 +22,7 @@ func writeStatisticsToFile(benchmarkName string, resourceStatistics *[]ResourceS
 		}
 		defer f.Close()
 
-		s := fmt.Sprintf("%.f;%.f;%.f;%.f;%.f;%.f;%.f\n", stats.AvgMem, stats.MaxMem, stats.Cpu, stats.NetTransmitted, stats.NetReceived, stats.DiskRead, stats.DiskWrite)
+		s := fmt.Sprintf("%.f,%.f,%.f,%.f,%.f,%.f,%.f\n", stats.AvgMem, stats.MaxMem, stats.Cpu, stats.NetTransmitted, stats.NetReceived, stats.DiskRead, stats.DiskWrite)
 		_, err = f.WriteString(s)
 		if err != nil {
 			return fmt.Errorf("error writing to file %v: %v", fileName, err)
@@ -35,7 +35,7 @@ func writeResultToFile(benchmarkName string, result BenchmarkResult) error{
 	fileName := "/output/" + benchmarkName + ".csv"
 
 	if _, err := os.Stat(fileName); os.IsNotExist(err) {
-		if err := createCSVFile(fileName, "min;max;avg;rps;failed\n"); err != nil {
+		if err := createCSVFile(fileName, "min,max,avg,rps,failed\n"); err != nil {
 			return fmt.Errorf("error creating file %v: %v", fileName, err)
 		}
 	}
@@ -46,7 +46,7 @@ func writeResultToFile(benchmarkName string, result BenchmarkResult) error{
 	}
 	defer f.Close()
 
-	s := fmt.Sprintf("%d;%d;%d;%.2f;%d\n", result.min.Milliseconds(), result.max.Milliseconds(), result.avg.Milliseconds(), result.rps, result.failed)
+	s := fmt.Sprintf("%d,%d,%d,%.2f,%d\n", result.min.Milliseconds(), result.max.Milliseconds(), result.avg.Milliseconds(), result.rps, result.failed)
 	_, err = f.WriteString(s)
 	return fmt.Errorf("error writing to file %v: %v", fileName, err)
 }
