@@ -4,7 +4,6 @@ import (
 	"flag"
 	"strconv"
 	"fmt"
-	"time"
 )
 
 type Configuration struct {
@@ -77,7 +76,7 @@ func loadConfiguration() Configuration {
 		hosts = append(hosts, "dc1n1:8087")
 	}
 	if *name == "" {
-		*name = time.Now().Format("20060102150405")
+		*name = currentTimestamp()
 	}
 
 	configuration := Configuration{

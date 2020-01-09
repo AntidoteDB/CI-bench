@@ -14,13 +14,13 @@ import (
 )
 
 type BenchmarkResult struct {
-	configuration Configuration
-	clients       int
-	min           time.Duration
-	max           time.Duration
-	avg           time.Duration
-	rps           float64
-	failed        int
+	Requests int
+	Clients  int
+	Min      time.Duration
+	Max      time.Duration
+	Avg      time.Duration
+	Rps      float64
+	Failed   int
 }
 
 type RequestConfiguration struct {
@@ -28,8 +28,9 @@ type RequestConfiguration struct {
 }
 
 type RequestResult struct {
-	latency time.Duration
-	failed  bool
+	start         int64
+	latency       time.Duration
+	failed        bool
 	errorCode     int
 }
 
@@ -126,20 +127,7 @@ func mainReturnWithCode() int {
 		}
 
 		for _, c := range configuration.concurrent {
-			start := time.Now()
-			if err := runBenchmark(c, configuration); err != nil {
-				fmt.Println(err)
-				return 1
-			}
-			end := time.Now()
-			resourceStatistics, err := collectStats(start, end, dbContainer)
-			if err != nil {
-				fmt.Println(err)
-				return 1
-			}
-
-			err = writeStatisticsToFile(configuration.name + "-" + strconv.Itoa(c), resourceStatistics)
-			if err != nil {
+			if err := runBenchmark(c, configuration, dbContainer); err != nil {
 				fmt.Println(err)
 				return 1
 			}
@@ -149,7 +137,9 @@ func mainReturnWithCode() int {
 	return 0
 }
 
-func runBenchmark(concurrent int, configuration Configuration) error {
+func runBenchmark(concurrent int, configuration Configuration, dbContainer *[]DbContainer) error {
+	runId := currentTimestamp()
+
 	benchmark := Benchmarks[configuration.benchmarkType]
 
 	//generate random bucket for each benchmark
@@ -158,7 +148,7 @@ func runBenchmark(concurrent int, configuration Configuration) error {
 	bucket := antidote.Bucket{Bucket: bucketKey}
 
 	queue := make(chan RequestConfiguration, configuration.requests)
-	results := make(chan RequestResult, configuration.requests)
+	resultChannel := make(chan RequestResult, configuration.requests)
 
 	createObject := BObjects["counter"]
 
@@ -219,7 +209,7 @@ func runBenchmark(concurrent int, configuration Configuration) error {
 	for _, host := range hosts {
 		for i := 0; i < concurrent; i++ {
 			wg.Add(1)
-			worker := newWorker(host, benchmark, queue, results, bucket)
+			worker := newWorker(host, benchmark, queue, resultChannel, bucket)
 			go func() {
 				worker.run()
 				wg.Done()
@@ -228,7 +218,7 @@ func runBenchmark(concurrent int, configuration Configuration) error {
 	}
 	go func() {
 		wg.Wait()
-		close(results)
+		close(resultChannel)
 	}()
 
 	failedCount := 0
@@ -236,7 +226,9 @@ func runBenchmark(concurrent int, configuration Configuration) error {
 	max := time.Duration(0)
 	sum := time.Duration(0)
 
-	for result := range results {
+	results := make([]RequestResult, 0)
+
+	for result := range resultChannel {
 		latency := result.latency
 		sum += latency
 
@@ -249,24 +241,44 @@ func runBenchmark(concurrent int, configuration Configuration) error {
 		if result.failed {
 			failedCount++
 		}
+		results = append(results, result)
 	}
 
 	end := time.Since(start)
+	endTime := time.Now()
 	avg := time.Duration(float64(sum.Nanoseconds()) / float64(configuration.requests))
 	rps := (float64(configuration.requests) / float64(end.Nanoseconds())) * (1e9)
 
 	result := BenchmarkResult{
-		configuration: configuration,
-		clients:       concurrent,
-		min:           min,
-		max:           max,
-		avg:           avg,
-		rps:           rps,
-		failed:        failedCount,
+		Requests: configuration.requests,
+		Clients:  concurrent,
+		Min:      min,
+		Max:      max,
+		Avg:      avg,
+		Rps:      rps,
+		Failed:   failedCount,
 	}
 
 	printBenchmarkResult(result)
-	writeResultToFile(result.configuration.name + "-" + strconv.Itoa(concurrent), result)
+	if err := writeResultSummaryToFile(configuration.name + "-" + strconv.Itoa(concurrent), result); err != nil {
+		return err
+	}
+	if err := writeResultsToFile(configuration.name + "-" + strconv.Itoa(concurrent), runId, &results); err != nil {
+		return err
+	}
+	resourceStatistics, err := collectStats(start, endTime, dbContainer)
+	if err != nil {
+		return err
+	}
+	if err := writeStatisticSummaryToFile(configuration.name + "-" + strconv.Itoa(concurrent), resourceStatistics); err != nil {
+		return err
+	}
+	if err := generateReport(configuration.name + "-" + strconv.Itoa(concurrent), &result, resourceStatistics); err != nil {
+		return err
+	}
+	if err := generateVis(configuration.name + "-" + strconv.Itoa(concurrent),"/tmp/results_" + configuration.name + "-" + strconv.Itoa(concurrent) + "_" + runId + ".csv"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -276,11 +288,11 @@ func testConnection(host antidote.Host) error {
 }
 
 func printBenchmarkResult(result BenchmarkResult) {
-	fmt.Printf("Clients: %d\n", result.clients)
-	fmt.Printf("Number of Requests: %d\n", result.configuration.requests)
-	fmt.Println("Min: " + result.min.String())
-	fmt.Println("Max: " + result.max.String())
-	fmt.Println("Avg: " + result.avg.String())
-	fmt.Printf("Rps: %.2f\n", result.rps)
-	fmt.Printf("Failed Requests: %d\n", result.failed)
+	fmt.Printf("Clients: %d\n", result.Clients)
+	fmt.Printf("Number of Requests: %d\n", result.Requests)
+	fmt.Println("Min: " + result.Min.String())
+	fmt.Println("Max: " + result.Max.String())
+	fmt.Println("Avg: " + result.Avg.String())
+	fmt.Printf("Rps: %.2f\n", result.Rps)
+	fmt.Printf("Failed Requests: %d\n", result.Failed)
 }

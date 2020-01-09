@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Benchmark Report</title>
+</head>
+<body>
+<h1>Antidote CI Benchmark Report</h1>
+<div>
+    <h2>{{.Name}}</h2>
+    <div>
+        <h3>Summary</h3>
+        <p>Number of Requests: {{.Summary.Requests}}</p>
+        <p>Min: {{.Summary.Min}}</p>
+        <p>Max: {{.Summary.Max}}</p>
+        <p>Avg: {{.Summary.Avg}}</p>
+        <p>Rps: {{printf "%.2f" .Summary.Rps}}</p>
+        <p>Failed: {{.Summary.Failed}}</p>
+    </div>
+    <div>
+        <h3>Resource usage</h3>
+        {{range .ResourceStatistics}}
+        <div>
+            <p>Container: {{.Container}}</p>
+            <p>Avg Memory usage: {{ByteFormat .AvgMem}}</p>
+            <p>Max Memory usage: {{ByteFormat .MaxMem}}</p>
+            <p>CPU usage: {{ByteFormat .Cpu}}</p>
+            <p>Network received: {{ByteFormat .NetReceived}}</p>
+            <p>Network transmitted: {{ByteFormat .NetTransmitted}}</p>
+            <p>Disk read: {{ByteFormat .DiskRead}}</p>
+            <p>Disk write: {{ByteFormat .DiskWrite}}</p>
+        </div>
+        {{end}}
+    </div>
+    <div>
+        <h3>Details</h3>
+        <p><img src="./img/max.png"></p>
+        <p><img src="./img/mean.png"></p>
+        <p><img src="./img/99.png"></p>
+        <p><img src="./img/throughput.png"></p>
+    </div>
+</div>
+</body>
+</html>

@@ -45,7 +45,7 @@ func (worker *worker) run() {
 
 		duration := time.Since(start)
 
-		result := RequestResult{latency: duration, failed: err != nil}
+		result := RequestResult{start: start.UnixNano(), latency: duration, failed: err != nil}
 		if err != nil {
 			result.errorCode = parseErrorCode(err)
 		}

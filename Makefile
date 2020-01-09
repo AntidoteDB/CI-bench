@@ -13,4 +13,4 @@ docker-build:
 	docker build -t antidote-benchmark .
 
 docker-run: docker-build
-	./script/run.sh
+	./script/run.sh -n test

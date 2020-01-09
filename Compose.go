@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/docker/docker/api/types"
 	"strconv"
+	"sort"
 )
 
 type DbContainer struct {
@@ -91,5 +92,10 @@ func getDbContainer() (*[]DbContainer, error) {
 			}
 		}
 	}
+
+	//sort result by dc and node
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].Name < res[j].Name
+	})
 	return &res, nil
 }

@@ -3,10 +3,11 @@ package main
 import (
 	"os"
 	"fmt"
+	"bufio"
 )
 
 
-func writeStatisticsToFile(benchmarkName string, resourceStatistics *[]ResourceStatistics) error {
+func writeStatisticSummaryToFile(benchmarkName string, resourceStatistics *[]ResourceStatistics) error {
 	for _, stats := range *resourceStatistics {
 		fileName := "/output/" + benchmarkName + "-" + stats.Container + ".csv"
 
@@ -31,7 +32,7 @@ func writeStatisticsToFile(benchmarkName string, resourceStatistics *[]ResourceS
 	return nil
 }
 
-func writeResultToFile(benchmarkName string, result BenchmarkResult) error{
+func writeResultSummaryToFile(benchmarkName string, result BenchmarkResult) error {
 	fileName := "/output/" + benchmarkName + ".csv"
 
 	if _, err := os.Stat(fileName); os.IsNotExist(err) {
@@ -46,9 +47,43 @@ func writeResultToFile(benchmarkName string, result BenchmarkResult) error{
 	}
 	defer f.Close()
 
-	s := fmt.Sprintf("%d,%d,%d,%.2f,%d\n", result.min.Milliseconds(), result.max.Milliseconds(), result.avg.Milliseconds(), result.rps, result.failed)
+	s := fmt.Sprintf("%d,%d,%d,%.2f,%d\n", result.Min.Milliseconds(), result.Max.Milliseconds(), result.Avg.Milliseconds(), result.Rps, result.Failed)
 	_, err = f.WriteString(s)
-	return fmt.Errorf("error writing to file %v: %v", fileName, err)
+	if err != nil {
+		return fmt.Errorf("error writing to file %v: %v", fileName, err)
+	}
+	return nil
+}
+
+func writeResultsToFile(benchmarkName string, runId string, results *[]RequestResult) error {
+	fileName := "/tmp/results_" + benchmarkName + "_" + runId + ".csv"
+
+	if _, err := os.Stat(fileName); os.IsNotExist(err) {
+		if err := createCSVFile(fileName, "start,latency,failed,code\n"); err != nil {
+			return fmt.Errorf("error creating file %v: %v", fileName, err)
+		}
+	}
+
+	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("error writing to file %v: %v", fileName, err)
+	}
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+	for _,result := range *results {
+		s := fmt.Sprintf("%d,%d,%t,%d\n", result.start, result.latency.Nanoseconds(), result.failed, result.errorCode)
+		_, err := w.WriteString(s)
+		if err != nil {
+			return fmt.Errorf("error writing to file %v: %v", fileName, err)
+		}
+	}
+
+	err = w.Flush()
+	if err != nil {
+		return fmt.Errorf("error writing to file %v: %v", fileName, err)
+	}
+	return nil
 }
 
 
