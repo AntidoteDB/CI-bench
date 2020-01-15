@@ -75,6 +75,7 @@ func mainReturnWithCode() int {
 	}
 
 	if configuration.delay != 0 {
+		fmt.Printf("Apply network delay %dms\n", configuration.delay)
 		idDelay, err := applyDelay(configuration.delay)
 		if err != nil {
 			fmt.Println(err)
@@ -83,15 +84,17 @@ func mainReturnWithCode() int {
 		defer stopContainer(idDelay)
 	}
 	if configuration.loss != 0 {
-		idLoss, err := applyLoss(configuration.delay)
+		fmt.Printf("Apply network loss %d%%\n", configuration.loss)
+		idLoss, err := applyLoss(configuration.loss)
 		if err != nil {
 			fmt.Println(err)
 			return 1
 		}
 		defer stopContainer(idLoss)
 	}
-	if configuration.rate != 0 {
-		idRate, err := applyRate(configuration.delay)
+	if configuration.rate != "" {
+		fmt.Printf("Apply network rate %s\n", configuration.rate)
+		idRate, err := applyRate(configuration.rate)
 		if err != nil {
 			fmt.Println(err)
 			return 1

@@ -18,8 +18,8 @@ type Configuration struct {
 	benchmarkType   string
 	bashoBenchPath  string
 	delay           int
-	loss           int
-	rate           int
+	loss            int
+	rate            string
 	name            string
 }
 
@@ -39,7 +39,7 @@ var (
 	bashoBenchPath              = flag.String("bb", "", "BashoBench config path")
 	delay                       = flag.Int("d", 0, "Network delay")
 	loss                       = flag.Int("loss", 0, "Network loss in percentage")
-	rate                       = flag.Int("rate", 0, "Network rate limit")
+	rate                       = flag.String("rate", "", "Network rate limit")
 	name                        = flag.String("n", "", "Benchmark name")
 )
 

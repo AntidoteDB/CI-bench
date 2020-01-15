@@ -50,12 +50,12 @@ func applyLoss(loss int) (string, error) {
 	return startContainer(image, containerConfig, hostConfig)
 }
 
-func applyRate(rate int) (string, error) {
+func applyRate(rate string) (string, error) {
 	image := "gaiaadm/pumba"
 
 	containerConfig := &container.Config{
 		Image: image,
-		Cmd: []string{"netem", "--duration", "1h", "rate", "--rate", strconv.Itoa(rate), "re2:^dc"},
+		Cmd: []string{"netem", "--duration", "1h", "rate", "--rate", rate, "re2:^dc"},
 	}
 
 	hostConfig := &container.HostConfig{
