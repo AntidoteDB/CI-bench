@@ -8,10 +8,7 @@ RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/
 WORKDIR /go/src/benchmark
 COPY . .
 
-RUN go mod init
-RUN go get -d -v ./... 
 RUN go get -d -v github.com/pkg/errors
-RUN go get -d -v github.com/docker/docker@master
 RUN go build -v -o benchmark ./...
 
 ENTRYPOINT ["./benchmark"]

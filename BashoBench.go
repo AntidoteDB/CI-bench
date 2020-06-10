@@ -35,7 +35,7 @@ func runBashoBench(configPath string) error {
 		return  err
 	}
 
-	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
+	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, "")
 
 	if err != nil {
 		return  err
